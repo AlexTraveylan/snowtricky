@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎿 SnowTricky - Course de Snowboard Multijoueur</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Écran de chargement -->
+  <div id="loading-screen" class="screen active">
+    <div class="loading-content">
+      <h1 class="game-title">🎿 SNOWTRICKY</h1>
+      <div class="loader"></div>
+      <p>Chargement...</p>
+    </div>
+  </div>
+
+  <!-- Écran d'accueil / Lobby -->
+  <div id="lobby-screen" class="screen">
+    <div class="lobby-container">
+      <div class="lobby-header">
+        <h1 class="game-title glitch" data-text="SNOWTRICKY">SNOWTRICKY</h1>
+        <p class="subtitle">Course de Snowboard Multijoueur</p>
+      </div>
+
+      <div class="join-section">
+        <div class="input-group">
+          <label for="player-name">Ton nom de rider</label>
+          <input type="text" id="player-name" placeholder="Entre ton nom..." maxlength="15" autocomplete="off">
+        </div>
+        <button id="join-btn" class="btn btn-primary">
+          <span>🏔️ Rejoindre la piste</span>
+        </button>
+      </div>
+
+      <div class="players-section">
+        <h2>🎿 Riders dans le lobby</h2>
+        <div id="players-list" class="players-list">
+          <p class="empty-message">En attente de joueurs...</p>
+        </div>
+        <p class="players-count">
+          <span id="player-count">0</span>/<span id="max-players">6</span> joueurs
+        </p>
+      </div>
+
+      <div class="ready-section" id="ready-section" style="display: none;">
+        <button id="ready-btn" class="btn btn-ready">
+          <span>✓ Je suis prêt!</span>
+        </button>
+      </div>
+
+      <div class="controls-info">
+        <h3>🎮 Contrôles</h3>
+        <div class="controls-grid">
+          <div class="control-item">
+            <kbd>←</kbd><kbd>→</kbd>
+            <span>Diriger</span>
+          </div>
+          <div class="control-item">
+            <kbd>ESPACE</kbd>
+            <span>Sauter</span>
+          </div>
+          <div class="control-item">
+            <kbd>F</kbd>
+            <span>Figure en l'air</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Écran de compte à rebours -->
+  <div id="countdown-screen" class="screen">
+    <div class="countdown-content">
+      <div id="countdown-number" class="countdown-number">3</div>
+    </div>
+  </div>
+
+  <!-- HUD du jeu -->
+  <div id="game-hud" class="hud" style="display: none;">
+    <div class="hud-top">
+      <div class="hud-timer">
+        <span class="timer-label">TEMPS</span>
+        <span id="race-timer" class="timer-value">0:00.00</span>
+      </div>
+      <div class="hud-speed">
+        <span class="speed-label">VITESSE</span>
+        <span id="speed-value" class="speed-value">0</span>
+        <span class="speed-unit">km/h</span>
+      </div>
+    </div>
+    <div class="hud-boost" id="boost-indicator" style="display: none;">
+      <span>🔥 BOOST!</span>
+    </div>
+    <div class="hud-trick" id="trick-indicator" style="display: none;">
+      <span>🌀 TRICK!</span>
+    </div>
+    <div class="hud-progress">
+      <div class="progress-bar">
+        <div id="progress-fill" class="progress-fill"></div>
+      </div>
+      <span class="progress-label">🏁</span>
+    </div>
+  </div>
+
+  <!-- Écran de fin de course -->
+  <div id="results-screen" class="screen">
+    <div class="results-container">
+      <h1 class="results-title">🏆 RÉSULTATS</h1>
+      <div id="podium" class="podium">
+        <!-- Généré dynamiquement -->
+      </div>
+      <div id="full-rankings" class="full-rankings">
+        <!-- Généré dynamiquement -->
+      </div>
+      <div id="easter-egg-message" class="easter-egg" style="display: none;"></div>
+    </div>
+  </div>
+
+  <!-- Canvas Three.js -->
+  <canvas id="game-canvas"></canvas>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

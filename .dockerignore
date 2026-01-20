@@ -1,0 +1,25 @@
+# Dépendances
+node_modules
+
+# Build local
+dist
+
+# Fichiers de développement
+.git
+.gitignore
+*.md
+.vscode
+.cursor
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environnement
+.env
+.env.local
+.env.*.local
