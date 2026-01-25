@@ -26,8 +26,8 @@ export class Game {
   async init() {
     // Créer la scène
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x87CEEB); // Ciel bleu clair
-    this.scene.fog = new THREE.Fog(0x87CEEB, 50, 300);
+    this.scene.background = new THREE.Color(0x89CFF0); // Ciel bleu clair (plus clair)
+    this.scene.fog = new THREE.Fog(0x89CFF0, 100, 600); // Brouillard étendu pour grande visibilité
 
     // Créer le renderer
     const canvas = document.getElementById('game-canvas');

@@ -4,20 +4,24 @@ export class Track {
   constructor(scene) {
     this.scene = scene;
     this.trackLength = 1500;
-    this.trackWidth = 20;
+    this.trackWidth = 30; // Piste élargie (était 20)
     
     this.obstacles = [];
     this.boosts = [];
     this.ramps = [];
     this.trees = [];
+    this.treeRows = []; // Rangées de sapins alignés
     
     this.groundSegments = [];
     this.segmentLength = 100;
-    this.visibleSegments = 5;
+    this.visibleSegments = 6; // Plus de segments visibles
     this.lastSegmentZ = 0;
     
     // Matériaux réutilisables
     this.materials = {};
+    
+    // Référence au skybox pour le faire suivre le joueur
+    this.sky = null;
   }
 
   async init() {
@@ -73,6 +77,10 @@ export class Track {
   }
 
   createInitialGround() {
+    // Créer un segment derrière le joueur pour éviter le vide au départ
+    this.createGroundSegment(this.segmentLength);
+    
+    // Créer les segments devant
     for (let i = 0; i < this.visibleSegments; i++) {
       this.createGroundSegment(-i * this.segmentLength);
     }
@@ -80,7 +88,7 @@ export class Track {
   }
 
   createGroundSegment(zPosition) {
-    // Sol de la piste
+    // Sol de la piste (plus large)
     const groundGeometry = new THREE.PlaneGeometry(this.trackWidth, this.segmentLength);
     const ground = new THREE.Mesh(groundGeometry, this.materials.track);
     ground.rotation.x = -Math.PI / 2;
@@ -88,18 +96,18 @@ export class Track {
     ground.receiveShadow = true;
     this.scene.add(ground);
 
-    // Neige sur les côtés
-    const sideGeometry = new THREE.PlaneGeometry(30, this.segmentLength);
+    // Neige sur les côtés (plus large pour éviter les trous)
+    const sideGeometry = new THREE.PlaneGeometry(50, this.segmentLength);
     
     const leftSide = new THREE.Mesh(sideGeometry, this.materials.snow);
     leftSide.rotation.x = -Math.PI / 2;
-    leftSide.position.set(-this.trackWidth / 2 - 15, -0.1, zPosition - this.segmentLength / 2);
+    leftSide.position.set(-this.trackWidth / 2 - 25, -0.1, zPosition - this.segmentLength / 2);
     leftSide.receiveShadow = true;
     this.scene.add(leftSide);
 
     const rightSide = new THREE.Mesh(sideGeometry, this.materials.snow);
     rightSide.rotation.x = -Math.PI / 2;
-    rightSide.position.set(this.trackWidth / 2 + 15, -0.1, zPosition - this.segmentLength / 2);
+    rightSide.position.set(this.trackWidth / 2 + 25, -0.1, zPosition - this.segmentLength / 2);
     rightSide.receiveShadow = true;
     this.scene.add(rightSide);
 
@@ -107,43 +115,102 @@ export class Track {
   }
 
   generateTrackElements() {
-    // Générer des arbres le long de la piste
-    for (let z = -20; z > -this.trackLength; z -= 15) {
-      // Arbres sur les côtés
-      if (Math.random() > 0.3) {
-        const leftX = -this.trackWidth / 2 - 2 - Math.random() * 10;
-        this.createTree(leftX, z + Math.random() * 10);
+    // Générer des arbres le long de la piste (bordures)
+    for (let z = -20; z > -this.trackLength; z -= 12) {
+      // Arbres sur les côtés (bordures de piste)
+      if (Math.random() > 0.25) {
+        const leftX = -this.trackWidth / 2 - 2 - Math.random() * 12;
+        this.createTree(leftX, z + Math.random() * 8);
       }
-      if (Math.random() > 0.3) {
-        const rightX = this.trackWidth / 2 + 2 + Math.random() * 10;
-        this.createTree(rightX, z + Math.random() * 10);
+      if (Math.random() > 0.25) {
+        const rightX = this.trackWidth / 2 + 2 + Math.random() * 12;
+        this.createTree(rightX, z + Math.random() * 8);
       }
 
-      // Arbres obstacles sur la piste (plus rares)
-      if (Math.random() > 0.85) {
-        const obstacleX = (Math.random() - 0.5) * (this.trackWidth - 4);
+      // Arbres obstacles isolés sur la piste (plus rares)
+      if (Math.random() > 0.9) {
+        const obstacleX = (Math.random() - 0.5) * (this.trackWidth - 6);
         this.createObstacleTree(obstacleX, z);
       }
     }
 
+    // Générer des rangées de sapins (murs avec passage) - beaucoup plus fréquentes
+    let lastRowZ = -80;
+    for (let z = -80; z > -this.trackLength + 100; z -= 60) {
+      // Probabilité plus élevée d'avoir une rangée
+      if (Math.random() > 0.35) {
+        // Décider du côté du passage (gauche ou droite)
+        const passageOnLeft = Math.random() > 0.5;
+        const addRamp = Math.random() > 0.5; // Au moins 50% de chance d'avoir un tremplin
+        this.createTreeRow(z, passageOnLeft, addRamp);
+        lastRowZ = z;
+      }
+    }
+
     // Générer des boosts
-    for (let z = -100; z > -this.trackLength; z -= 80) {
-      if (Math.random() > 0.4) {
-        const boostX = (Math.random() - 0.5) * (this.trackWidth - 4);
+    for (let z = -100; z > -this.trackLength; z -= 70) {
+      if (Math.random() > 0.35) {
+        const boostX = (Math.random() - 0.5) * (this.trackWidth - 6);
         this.createBoost(boostX, z);
       }
     }
 
-    // Générer des rampes
-    for (let z = -150; z > -this.trackLength; z -= 200) {
-      if (Math.random() > 0.5) {
-        const rampX = (Math.random() - 0.5) * (this.trackWidth - 6);
+    // Générer des rampes supplémentaires (indépendantes des rangées)
+    for (let z = -120; z > -this.trackLength; z -= 150) {
+      if (Math.random() > 0.4) {
+        const rampX = (Math.random() - 0.5) * (this.trackWidth - 8);
         this.createRamp(rampX, z);
       }
     }
 
     // Ligne d'arrivée
     this.createFinishLine();
+  }
+
+  createTreeRow(z, passageOnLeft, addRamp) {
+    // Créer une rangée de sapins avec un passage d'un côté
+    const numTrees = 4 + Math.floor(Math.random() * 2); // 4-5 sapins par rangée
+    const passageWidth = 6; // Largeur du passage
+    const treeSpacing = (this.trackWidth - passageWidth) / numTrees;
+    
+    const rowTrees = [];
+    
+    // Position de départ selon le côté du passage
+    let startX;
+    if (passageOnLeft) {
+      // Passage à gauche, arbres à droite
+      startX = -this.trackWidth / 2 + passageWidth;
+    } else {
+      // Passage à droite, arbres à gauche
+      startX = -this.trackWidth / 2;
+    }
+    
+    // Créer les arbres de la rangée
+    for (let i = 0; i < numTrees; i++) {
+      const treeX = startX + i * treeSpacing + treeSpacing / 2;
+      
+      // Vérifier que l'arbre est bien sur la piste
+      if (Math.abs(treeX) < this.trackWidth / 2 - 1) {
+        this.createObstacleTree(treeX, z + (Math.random() - 0.5) * 2);
+        rowTrees.push({ x: treeX, z: z });
+      }
+    }
+    
+    // Ajouter un tremplin devant la rangée si demandé
+    if (addRamp) {
+      // Position du tremplin au centre de la rangée (pas dans le passage)
+      const rampX = passageOnLeft ? 
+        (this.trackWidth / 4) : // Tremplin à droite si passage à gauche
+        (-this.trackWidth / 4); // Tremplin à gauche si passage à droite
+      
+      this.createRamp(rampX, z + 15); // Tremplin 15m avant la rangée
+    }
+    
+    this.treeRows.push({
+      z: z,
+      passageOnLeft: passageOnLeft,
+      trees: rowTrees
+    });
   }
 
   createTree(x, z) {
@@ -270,23 +337,23 @@ export class Track {
   }
 
   createFinishLine() {
-    // Arche d'arrivée
+    // Arche d'arrivée (élargie pour la piste plus large)
     const archGroup = new THREE.Group();
 
-    // Poteaux
+    // Poteaux (plus espacés)
     const poleGeometry = new THREE.CylinderGeometry(0.3, 0.3, 6, 8);
     const poleMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
     
     const leftPole = new THREE.Mesh(poleGeometry, poleMaterial);
-    leftPole.position.set(-6, 3, 0);
+    leftPole.position.set(-10, 3, 0);
     archGroup.add(leftPole);
 
     const rightPole = new THREE.Mesh(poleGeometry, poleMaterial);
-    rightPole.position.set(6, 3, 0);
+    rightPole.position.set(10, 3, 0);
     archGroup.add(rightPole);
 
-    // Bannière
-    const bannerGeometry = new THREE.BoxGeometry(12, 1.5, 0.2);
+    // Bannière (plus large)
+    const bannerGeometry = new THREE.BoxGeometry(20, 1.5, 0.2);
     const bannerMaterial = new THREE.MeshStandardMaterial({ 
       color: 0xffffff,
       emissive: 0xffffff,
@@ -311,7 +378,7 @@ export class Track {
     const texture = new THREE.CanvasTexture(canvas);
     const textMaterial = new THREE.MeshBasicMaterial({ map: texture });
     const textPlane = new THREE.Mesh(
-      new THREE.PlaneGeometry(12, 1.5),
+      new THREE.PlaneGeometry(20, 1.5),
       textMaterial
     );
     textPlane.position.set(0, 5.5, 0.15);
@@ -334,8 +401,8 @@ export class Track {
   }
 
   createSkybox() {
-    // Ciel gradient simple
-    const skyGeometry = new THREE.SphereGeometry(400, 32, 32);
+    // Ciel gradient simple - rayon augmenté et suit le joueur
+    const skyGeometry = new THREE.SphereGeometry(800, 32, 32);
     const skyMaterial = new THREE.ShaderMaterial({
       uniforms: {
         topColor: { value: new THREE.Color(0x0077ff) },
@@ -364,8 +431,8 @@ export class Track {
       `,
       side: THREE.BackSide
     });
-    const sky = new THREE.Mesh(skyGeometry, skyMaterial);
-    this.scene.add(sky);
+    this.sky = new THREE.Mesh(skyGeometry, skyMaterial);
+    this.scene.add(this.sky);
   }
 
   createMountains() {
@@ -404,6 +471,11 @@ export class Track {
   }
 
   update(playerZ) {
+    // Faire suivre le skybox au joueur pour éviter le "mur bleu"
+    if (this.sky) {
+      this.sky.position.z = playerZ;
+    }
+    
     // Ajouter de nouveaux segments de sol si nécessaire
     while (this.lastSegmentZ > playerZ - this.segmentLength * this.visibleSegments) {
       this.lastSegmentZ -= this.segmentLength;

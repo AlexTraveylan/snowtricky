@@ -25,17 +25,25 @@ export class Player {
     this.jumpForce = 15;
     this.gravity = 35;
     this.groundY = 0;
+    this.isRampJump = false; // Nouveau: saute-t-on depuis un tremplin?
+    this.jumpHeight = 0; // Hauteur max atteinte pendant le saut
     
     // Figure (trick)
     this.isTricking = false;
     this.trickRotation = 0;
     this.trickBonus = false;
+    this.failedTrickPenalty = false; // Nouveau: pénalité pour saut raté
     
     // Boost
     this.isBoosting = false;
     this.boostMultiplier = 1.5;
     this.boostDuration = 0;
     this.maxBoostDuration = 2;
+    
+    // Pénalité
+    this.isPenalized = false;
+    this.penaltyDuration = 0;
+    this.penaltyMultiplier = 0.6; // Ralentissement de 40%
     
     // Contrôles
     this.controlsEnabled = false;
@@ -174,11 +182,16 @@ export class Player {
     this.rotation.set(0, 0, 0);
     this.currentSpeed = this.baseSpeed;
     this.isJumping = false;
+    this.isRampJump = false;
+    this.jumpHeight = 0;
     this.isTricking = false;
     this.isBoosting = false;
     this.boostDuration = 0;
     this.trickRotation = 0;
     this.trickBonus = false;
+    this.failedTrickPenalty = false;
+    this.isPenalized = false;
+    this.penaltyDuration = 0;
     this.hasFinished = false;
     this.finishReported = false;
     
@@ -196,25 +209,38 @@ export class Player {
     if (this.keys.left) lateralMove = -this.lateralSpeed * delta;
     if (this.keys.right) lateralMove = this.lateralSpeed * delta;
 
-    // Limiter la position latérale (largeur de la piste)
+    // Limiter la position latérale (largeur de la piste élargie)
     const newX = this.position.x + lateralMove;
-    this.position.x = THREE.MathUtils.clamp(newX, -8, 8);
+    this.position.x = THREE.MathUtils.clamp(newX, -13, 13);
 
-    // Saut
+    // Saut depuis le sol (pas un tremplin)
     if (this.keys.jump && !this.isJumping) {
       this.isJumping = true;
-      this.jumpVelocity = this.jumpForce;
+      this.isRampJump = false; // Saut depuis le sol
+      this.jumpVelocity = this.jumpForce * 0.6; // Saut plus faible depuis le sol
+      this.jumpHeight = 0;
       this.keys.jump = false;
     }
 
     if (this.isJumping) {
       this.jumpVelocity -= this.gravity * delta;
       this.position.y += this.jumpVelocity * delta;
+      
+      // Suivre la hauteur max
+      if (this.position.y > this.jumpHeight) {
+        this.jumpHeight = this.position.y;
+      }
 
-      // Trick (figure en l'air)
+      // Trick (figure en l'air) - SEULEMENT si saut depuis tremplin
       if (this.keys.trick && !this.isTricking) {
-        this.isTricking = true;
-        this.trickRotation = 0;
+        if (this.isRampJump) {
+          // OK: saut depuis tremplin, on peut faire un trick
+          this.isTricking = true;
+          this.trickRotation = 0;
+        } else {
+          // Tentative de trick depuis un saut au sol = pénalité
+          this.failedTrickPenalty = true;
+        }
       }
 
       if (this.isTricking) {
@@ -236,14 +262,21 @@ export class Player {
         this.isJumping = false;
         this.jumpVelocity = 0;
         
-        // Bonus de trick à l'atterrissage
-        if (this.trickBonus) {
+        // Bonus de trick à l'atterrissage (seulement si trick réussi depuis tremplin)
+        if (this.trickBonus && this.isRampJump) {
           this.activateBoost(1.5); // Boost de 1.5 secondes
           this.trickBonus = false;
         }
         
+        // Pénalité pour tentative de trick ratée (depuis le sol)
+        if (this.failedTrickPenalty) {
+          this.activatePenalty(1.0); // Ralentissement de 1 seconde
+          this.failedTrickPenalty = false;
+        }
+        
         this.isTricking = false;
         this.trickRotation = 0;
+        this.isRampJump = false;
         if (this.mesh) {
           this.mesh.rotation.x = 0;
         }
@@ -258,9 +291,23 @@ export class Player {
         this.boostDuration = 0;
       }
     }
+    
+    // Gestion de la pénalité
+    if (this.isPenalized) {
+      this.penaltyDuration -= delta;
+      if (this.penaltyDuration <= 0) {
+        this.isPenalized = false;
+        this.penaltyDuration = 0;
+      }
+    }
 
     // Calculer la vitesse actuelle
-    const targetSpeed = this.isBoosting ? this.baseSpeed * this.boostMultiplier : this.baseSpeed;
+    let targetSpeed = this.baseSpeed;
+    if (this.isBoosting) {
+      targetSpeed = this.baseSpeed * this.boostMultiplier;
+    } else if (this.isPenalized) {
+      targetSpeed = this.baseSpeed * this.penaltyMultiplier;
+    }
     this.currentSpeed = THREE.MathUtils.lerp(this.currentSpeed, targetSpeed, delta * 3);
 
     // Avancer sur la piste (descente)
@@ -301,13 +348,20 @@ export class Player {
       const dz = this.position.z - obstacle.position.z;
       const distance = Math.sqrt(dx * dx + dz * dz);
       
-      if (distance < obstacle.radius + 0.5) { // 0.5 = rayon du joueur
-        // Collision! Ralentir le joueur
-        this.currentSpeed = Math.max(this.baseSpeed * 0.5, this.currentSpeed * 0.7);
+      // Hauteur minimale pour passer par-dessus un sapin (depuis un tremplin)
+      const treeHeight = 3.5; // Hauteur approximative des sapins obstacles
+      const canJumpOver = this.isJumping && this.isRampJump && this.position.y > treeHeight;
+      
+      if (distance < obstacle.radius + 0.5 && !canJumpOver) { // 0.5 = rayon du joueur
+        // Collision avec un sapin! On traverse mais avec ralentissement
+        this.currentSpeed = Math.max(this.baseSpeed * 0.4, this.currentSpeed * 0.6);
         
-        // Repousser légèrement le joueur
+        // Activer une courte pénalité pour le choc
+        this.activatePenalty(0.5);
+        
+        // Léger décalage latéral (effet de choc)
         const pushDirection = dx > 0 ? 1 : -1;
-        this.position.x += pushDirection * 0.5;
+        this.position.x += pushDirection * 0.3;
       }
     }
   }
@@ -337,10 +391,12 @@ export class Player {
       const dx = Math.abs(this.position.x - ramp.position.x);
       const dz = Math.abs(this.position.z - ramp.position.z);
       
-      if (dx < 2 && dz < 1 && !this.isJumping) {
-        // Sur la rampe - saut automatique
+      if (dx < 2.5 && dz < 1.5 && !this.isJumping) {
+        // Sur la rampe - saut automatique depuis tremplin
         this.isJumping = true;
-        this.jumpVelocity = this.jumpForce * 1.2; // Saut plus haut
+        this.isRampJump = true; // C'est un saut depuis un tremplin!
+        this.jumpVelocity = this.jumpForce * 1.5; // Saut beaucoup plus haut
+        this.jumpHeight = 0;
       }
     }
   }
@@ -348,20 +404,28 @@ export class Player {
   activateBoost(duration) {
     this.isBoosting = true;
     this.boostDuration = duration;
+    this.isPenalized = false; // Annule la pénalité si on obtient un boost
+  }
+  
+  activatePenalty(duration) {
+    if (!this.isBoosting) { // La pénalité ne s'applique pas si on est en boost
+      this.isPenalized = true;
+      this.penaltyDuration = duration;
+    }
   }
 
   updateCamera(delta) {
-    // Position cible de la caméra (derrière et au-dessus du joueur)
-    const cameraOffset = new THREE.Vector3(0, 5, 12);
+    // Position cible de la caméra (plus haute et plus en arrière pour voir la descente)
+    const cameraOffset = new THREE.Vector3(0, 8, 14);
     const targetPosition = this.position.clone().add(cameraOffset);
     
     // Interpolation douce
     this.camera.position.lerp(targetPosition, delta * 5);
     
-    // Regarder vers le joueur
+    // Regarder plus loin devant pour accentuer l'impression de descente
     const lookTarget = this.position.clone();
-    lookTarget.y += 1;
-    lookTarget.z -= 10;
+    lookTarget.y -= 2; // Regarder légèrement vers le bas
+    lookTarget.z -= 25; // Regarder plus loin devant
     this.camera.lookAt(lookTarget);
   }
 
