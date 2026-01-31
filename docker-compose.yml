@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: snowtricky_server
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    profiles:
+      - prod
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: snowtricky_client
+    depends_on:
+      - server
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    profiles:
+      - prod
+
+  dev:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      VITE_HOST: 0.0.0.0
+    volumes:
+      - ./:/app
+      - dev_node_modules:/app/node_modules
+    ports:
+      - "3000:3000"
+      - "5173:5173"
+    profiles:
+      - dev
+
+volumes:
+  dev_node_modules:
