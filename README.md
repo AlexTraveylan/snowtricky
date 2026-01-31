@@ -39,11 +39,10 @@ npm run dev
 - Client : http://localhost:5173
 - Serveur : http://localhost:3000
 
-### Option 2 : Docker 🐳
+### Option 2 : Docker compose 🐳
 
 ```bash
-# Build de l'image
-docker build -t snowtricky .
+docker compose --profile prod up --build
 
 # Lancer le conteneur
 docker run -p 3000:3000 snowtricky
