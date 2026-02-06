@@ -5,5 +5,4 @@ npm-debug.log
 README.md
 .env
 .env.local
-dist
 .vite
