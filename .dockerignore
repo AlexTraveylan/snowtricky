@@ -1,25 +1,9 @@
-# Dépendances
 node_modules
-
-# Build local
-dist
-
-# Fichiers de développement
+npm-debug.log
 .git
 .gitignore
-*.md
-.vscode
-.cursor
-
-# Logs
-*.log
-npm-debug.log*
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Environnement
+README.md
 .env
 .env.local
-.env.*.local
+dist
+.vite

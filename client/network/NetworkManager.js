@@ -9,8 +9,8 @@ export class NetworkManager {
 
   async connect() {
     return new Promise((resolve, reject) => {
-      // Connecter au serveur Socket.IO
-      this.socket = io('http://localhost:3000', {
+      const serverUrl = import.meta.env.VITE_SERVER_URL || window.location.origin;
+      this.socket = io(serverUrl, {
         transports: ['websocket', 'polling']
       });
 
